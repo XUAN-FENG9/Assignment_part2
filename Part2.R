@@ -6,7 +6,7 @@ library(writexl)
 library(plm)
 library(lubridate)
 library(psych)
-
+library(mfx)
 
 main<-read_xlsx("D:/Dataset Assignment 1.2.xlsx")
 
@@ -20,9 +20,7 @@ preg1<-plm(lev~roa_lag+tang_lag+size_lag+ret_lag,data = pmain,effect = "twoways"
 summary(preg1)
 
 # Question 11: fit
-OLSreg<-lm(lev~roa_lag+tang_lag+size_lag+ret_lag,data = main)
-summary(OLSreg)
-main$OLSfit<-fitted(OLSreg)
+
 fixefft<-fixef(preg1,effect = "time")
 fixeffi<-fixef(preg1,effect = "individual")
 fixefft<-tibble(c(2006:2015),fixefft)
@@ -31,15 +29,13 @@ fixeffi<-tibble(c(1:439),fixeffi)
 names(fixeffi)[1]<-"firmnr"
 main<-merge(main,fixefft,by="year")
 main<-merge(main,fixeffi,by="firmnr")
-main$fitted<-main$OLSfit+main$fixeffi+main$fixefft
+p1<-preg1$coefficients[[1]]
+p2<-preg1$coefficients[[2]]
+p3<-preg1$coefficients[[3]]
+p4<-preg1$coefficients[[4]]
+main<-main%>%mutate(fitted=p1*roa_lag+p2*tang_lag+p3*size_lag+p4*ret_lag+fixefft+fixeffi)
 main%>%ggplot(aes(lev,fitted))+geom_point()+xlim(0,1)+ylim(0,1)+geom_smooth(method = lm)
 qqnorm(main$fitted);qqline(main$fitted)
-describe(main$fitted)
-#dela with outliers
-low<-quantile(main$fitted,0.05)
-high<-quantile(main$fitted,0.95)
-main$fitted<-ifelse(main$fitted>high,high,main$fitted)
-main$fitted<-ifelse(main$fitted<low,low,main$fitted)
 describe(main$fitted)
 
 #Question 12: 
@@ -52,10 +48,11 @@ describe(main$D_Overlev)
 main$fc<-as.numeric(main$fc)
 Breg1<-glm(main$D_Overlev~main$D_crisis+main$D_rated+main$D_distress+main$fc,data=main,family = "binomial")
 summary(Breg1)
+probitmfx(main$D_Overlev~main$D_crisis+main$D_rated+main$D_distress+main$fc,data=main)
 
 #Questin 14£º binary regrassion of SEO
-Breg2<-Breg1<-glm(main$D_SEO~main$D_Overlev+main$D_crisis+main$D_rated+main$D_distress+main$fc,data=main,family = "binomial")
+Breg2<-glm(main$D_SEO~main$D_Overlev+main$D_crisis+main$D_rated+main$D_distress+main$fc,data=main,family = "binomial")
 summary(Breg2)
-
+probitmfx(main$D_SEO~main$D_Overlev+main$D_crisis+main$D_rated+main$D_distress+main$fc,data=main)
 #process main file
 write_xlsx(main,"D:/process_part2¡£xlsx")
